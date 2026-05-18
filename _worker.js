@@ -24,7 +24,7 @@ export default {
 
         // 存储到 KV，以地址为 Key，包含私钥和匹配规则
         const data = { privateKey, pattern, createdAt: new Date().toISOString() };
-        await env.TRON_VANITY_KV.put(address, JSON.stringify(data));
+        await env.kv.put(address, JSON.stringify(data));
 
         return new Response(JSON.stringify({ success: true, message: '靓号已成功保存到云端' }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -36,11 +36,11 @@ export default {
 
     // 路由2：获取已跑出的靓号列表
     if (url.pathname === '/api/list' && request.method === 'GET') {
-      const list = await env.TRON_VANITY_KV.list();
+      const list = await env.kv.list();
       const results = [];
       
       for (const key of list.keys) {
-        const value = await env.TRON_VANITY_KV.get(key.name);
+        const value = await env.kv.get(key.name);
         results.push({ address: key.name, ...JSON.parse(value) });
       }
 
