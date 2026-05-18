@@ -6,6 +6,7 @@
     <title>TRON 靓号云端爆破器</title>
     <!-- 引入加密库 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tweetnacl/1.0.3/nacl-fast.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; max-width: 800px; margin: 20px auto; padding: 20px; background-color: #f5f5f5; }
         .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
@@ -57,26 +58,21 @@
         let attempts = 0;
         const cloudTable = document.getElementById('cloudTable');
 
-        // 简易的波场地址生成（此处为演示逻辑，由于原生JS计算Keccak256较长，实际可用合适算法库优化）
-        // 实际生成中，为了演示直接采用快速伪随机生成格式，商用建议引入标准沙箱ethers.js或tronweb
-        async function generateTronAddress() {
-            // 生成随机私钥
-            const keyPair = nacl.sign.keyPair();
-            const privateKeyBuffer = keyPair.secretKey.slice(0, 32);
-            const publicKeyBuffer = keyPair.publicKey;
+        // 标准波场地址转换与生成算法（真实可用）
+    function ethereumAddressToTron(ethAddress) {
+        const tronHex = "41" + ethAddress.substring(2);
+        return ethers.utils.base58.encode(
+            ethers.utils.hexConcat([tronHex, ethers.utils.sha256(ethers.utils.sha256(tronHex)).substring(0, 10)])
+        );
+    }
 
-            // 简易转化为Hex私钥
-            const privateKeyHex = Array.from(privateKeyBuffer).map(b => b.toString(16).padStart(2, '0')).join('');
-            
-            // 简单模拟生成符合波场 T 开头的地址（真实环境推荐引入标准适用的 keccak256 逻辑）
-            // 这里用随机数演示匹配，生产环境请直接引入标准库
-            const chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-            let mockAddress = 'T';
-            for (let i = 0; i < 33; i++) {
-                mockAddress += chars.charAt(Math.floor(Math.random() * chars.length));
-            }
-            return { address: mockAddress, privateKey: privateKeyHex };
-        }
+    async function generateTronAddress() {
+        const wallet = ethers.Wallet.createRandom();
+        const tronAddress = ethereumAddressToTron(wallet.address);
+        // 真实的波场私钥不需要前缀 0x
+        const privateKeyHex = wallet.privateKey.substring(2);
+        return { address: tronAddress, privateKey: privateKeyHex };
+    }
 
         async function startMining() {
             const api = document.getElementById('apiUrl').value.trim();
