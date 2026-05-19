@@ -22,14 +22,27 @@ export default {
           return new Response(JSON.stringify({ error: '参数不完整' }), { status: 400, headers: corsHeaders });
         }
 
-        // 存储到 KV，以地址为 Key，包含私钥和匹配规则
+        // 【核心安全】KV 数据库中依然存储完整的私钥，绝对不能打星号！
         const data = { privateKey, pattern, createdAt: new Date().toISOString() };
         await env.kv.put(address, JSON.stringify(data));
+
         // [新增逻辑] 推送通知到 Telegram 机器人
         if (env.TG_BOT_TOKEN && env.TG_CHAT_ID) {
-          const tgUrl = `https://api.telegram.org/bot${env.TG_BOT_TOKEN}/sendMessage`;
-          const textMsg = `🎉 **发现 TRON 极品靓号！**\n\n🎯 匹配规则: ${pattern}\n🪪 地址: \`${address}\`\n🔑 私钥: \`${privateKey}\`\n⏱️ 时间: ${data.createdAt}`;
+          
+          // 新增：脱敏打星号函数 (保留前6位和后6位，中间全部变 ****)
+          const maskString = (str, showStart = 6, showEnd = 6) => {
+            if (!str || str.length <= showStart + showEnd) return str;
+            return str.slice(0, showStart) + '****' + str.slice(-showEnd);
+          };
 
+          // 对发往 TG 的地址和私钥进行脱敏处理
+          const maskedAddress = maskString(address, 6, 6);
+          const maskedPrivateKey = maskString(privateKey, 6, 6);
+
+          const tgUrl = `https://api.telegram.org/bot${env.TG_BOT_TOKEN}/sendMessage`;
+          // 这里使用的是加了星号的变量 maskedAddress 和 maskedPrivateKey
+          const textMsg = `🎉 **发现 TRON 极品靓号！**\n\n🎯 匹配规则: ${pattern}\n🪪 地址: \`${maskedAddress}\`\n🔑 私钥: \`${maskedPrivateKey}\`\n⏱️ 时间: ${data.createdAt}\n\n*(完整私钥已安全存入云端 KV)*`;
+          
           const tgRequest = fetch(tgUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -39,10 +52,11 @@ export default {
               parse_mode: 'Markdown' 
             })
           });
-
+          
           // 使用 waitUntil 让请求在后台执行，不阻塞返回给前端的响应
           ctx.waitUntil(tgRequest);
         }
+
         return new Response(JSON.stringify({ success: true, message: '靓号已成功保存到云端' }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
